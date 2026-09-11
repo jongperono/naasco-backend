@@ -2,11 +2,18 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import 'dotenv/config';
+import authRoutes from './routes/auth.routes.js';
+import usersRoutes from './routes/users.routes.js';
 
 const app = new Hono();
 
 // Middleware
-app.use('/*', cors());
+app.use('/*', cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 
 // Test routes
 app.get('/', (c) => {
@@ -23,6 +30,12 @@ app.get('/api/health', (c) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Mount auth routes
+app.route('/api/auth', authRoutes);
+
+// Mount users routes
+app.route('/api/users', usersRoutes);
 
 app.get('/api/test', (c) => {
   return c.json({

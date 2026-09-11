@@ -1,0 +1,389 @@
+### NAASCO Backend API Tests
+### Use the REST Client extension in VS Code to run these requests
+### Click "Send Request" above each request or use Ctrl+Alt+R (Windows/Linux) or Cmd+Alt+R (Mac)
+
+@baseUrl = http://localhost:3001
+@contentType = application/json
+
+# You can change these test credentials
+@testEmail = jongperono@example.com
+@testPassword = password1234
+
+# This will be set after login/register
+@authToken = my-super-secret-jwt-key
+
+###############################################################################
+# PUBLIC ENDPOINTS
+###############################################################################
+
+### Health Check
+GET {{baseUrl}}/api/health
+
+### API Root
+GET {{baseUrl}}/
+
+###############################################################################
+# AUTHENTICATION - REGISTER
+###############################################################################
+
+### Register a new user
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "jongperono@gmail.com",
+  "password": "jongjong",
+  "firstName": "Jong",
+  "lastName": "Perono",
+  "role": "admin",
+  "phoneNumber": "+1234561234"
+}
+
+### Register without phone number (optional field)
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "user2@example.com",
+  "password": "password123",
+  "firstName": "John",
+  "lastName": "Doe"
+}
+
+### Register with invalid email (should fail)
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "invalid-email",
+  "password": "password123",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Register with short password (should fail)
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "test3@example.com",
+  "password": "123",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Register duplicate email (should fail with 409)
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}",
+  "firstName": "Duplicate",
+  "lastName": "User"
+}
+
+###############################################################################
+# AUTHENTICATION - LOGIN
+###############################################################################
+
+### Login with valid credentials
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}"
+}
+
+### Login with wrong password (should fail)
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "{{testEmail}}",
+  "password": "wrongpassword"
+}
+
+### Login with non-existent email (should fail)
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "nonexistent@example.com",
+  "password": "password123"
+}
+
+### Login with invalid email format (should fail)
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "not-an-email",
+  "password": "password123"
+}
+
+###############################################################################
+# AUTHENTICATION - TOKEN VERIFICATION
+###############################################################################
+
+### Get current user info (requires token)
+# Replace YOUR_TOKEN_HERE with actual token from login response
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQsImVtYWlsIjoiam9uZ3Blcm9ub0BnbWFpbC5jb20iLCJyb2xlSWQiOjIsImlhdCI6MTc4OTExMTIzNCwiZXhwIjoxNzg5NzE2MDM0fQ.iiNp_twENsO8jvoFJHYpNcVHElKJ2Wgr3U6hNJC2pdI
+
+### Get current user with invalid token (should fail)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer invalid_token_12345
+
+### Get current user without token (should fail)
+GET {{baseUrl}}/api/auth/me
+
+###############################################################################
+# USER MANAGEMENT - CREATE USER (Admin/Manager only)
+###############################################################################
+
+### Create a new user with default member role
+POST {{baseUrl}}/api/users
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: {{contentType}}
+
+{
+  "email": "newuser@example.com",
+  "password": "newuser123",
+  "firstName": "New",
+  "lastName": "User",
+  "phoneNumber": "+1122334455"
+}
+
+### Create a user with specific role (admin)
+POST {{baseUrl}}/api/users
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@example.com",
+  "password": "admin123",
+  "firstName": "Admin",
+  "lastName": "User",
+  "roleId": 1
+}
+
+### Create a user without phone number
+POST {{baseUrl}}/api/users
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: {{contentType}}
+
+{
+  "email": "simple@example.com",
+  "password": "simple123",
+  "firstName": "Simple",
+  "lastName": "User"
+}
+
+### Create an inactive user
+POST {{baseUrl}}/api/users
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: {{contentType}}
+
+{
+  "email": "inactive@example.com",
+  "password": "inactive123",
+  "firstName": "Inactive",
+  "lastName": "User",
+  "isActive": false
+}
+
+### Create user with invalid email (should fail)
+POST {{baseUrl}}/api/users
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: {{contentType}}
+
+{
+  "email": "invalid-email",
+  "password": "password123",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Create user with short password (should fail)
+POST {{baseUrl}}/api/users
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "123",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Create user with duplicate email (should fail)
+POST {{baseUrl}}/api/users
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: {{contentType}}
+
+{
+  "email": "{{testEmail}}",
+  "password": "password123",
+  "firstName": "Duplicate",
+  "lastName": "User"
+}
+
+### Create user with invalid roleId (should fail)
+POST {{baseUrl}}/api/users
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: {{contentType}}
+
+{
+  "email": "invalidrole@example.com",
+  "password": "password123",
+  "firstName": "Invalid",
+  "lastName": "Role",
+  "roleId": 999
+}
+
+### Create user without authentication (should fail)
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "email": "noauth@example.com",
+  "password": "password123",
+  "firstName": "No",
+  "lastName": "Auth"
+}
+
+###############################################################################
+# USER MANAGEMENT - PROFILE
+###############################################################################
+
+### Get user profile (requires authentication)
+GET {{baseUrl}}/api/users/profile
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Get profile without token (should fail)
+GET {{baseUrl}}/api/users/profile
+
+###############################################################################
+# USER MANAGEMENT - LIST USERS (Admin/Manager only)
+###############################################################################
+
+### Get all users (requires admin or manager role)
+GET {{baseUrl}}/api/users
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Get all users without token (should fail)
+GET {{baseUrl}}/api/users
+
+###############################################################################
+# USER MANAGEMENT - GET USER BY ID (Admin/Manager only)
+###############################################################################
+
+### Get user by ID (replace 1 with actual user ID)
+GET {{baseUrl}}/api/users/1
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Get user by ID without token (should fail)
+GET {{baseUrl}}/api/users/1
+
+### Get user with invalid ID (should fail)
+GET {{baseUrl}}/api/users/abc
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Get non-existent user (should fail with 404)
+GET {{baseUrl}}/api/users/99999
+Authorization: Bearer YOUR_TOKEN_HERE
+
+###############################################################################
+# TEST ENDPOINTS
+###############################################################################
+
+### Test GET endpoint
+GET {{baseUrl}}/api/test
+
+### Test POST endpoint
+POST {{baseUrl}}/api/test
+Content-Type: {{contentType}}
+
+{
+  "message": "Test data",
+  "timestamp": "2024-01-01T00:00:00Z"
+}
+
+###############################################################################
+# COMPLETE WORKFLOW EXAMPLE
+###############################################################################
+
+### Step 1: Register a new user
+# @name registerUser
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "workflow@example.com",
+  "password": "workflow123",
+  "firstName": "Workflow",
+  "lastName": "Test",
+  "phoneNumber": "+1987654321"
+}
+
+### Step 2: Login with the registered user
+# @name loginUser
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "workflow@example.com",
+  "password": "workflow123"
+}
+
+### Step 3: Verify token (use token from Step 2)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+### Step 4: Get user profile (use token from Step 2)
+GET {{baseUrl}}/api/users/profile
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+### Step 5: Create a new user (admin/manager only, use token from Step 2)
+POST {{baseUrl}}/api/users
+Authorization: Bearer {{loginUser.response.body.data.token}}
+Content-Type: {{contentType}}
+
+{
+  "email": "created@example.com",
+  "password": "created123",
+  "firstName": "Created",
+  "lastName": "User",
+  "phoneNumber": "+1555666777"
+}
+
+### Step 6: Get all users (use token from Step 2)
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+###############################################################################
+# NOTES
+###############################################################################
+
+# How to use:
+# 1. Install "REST Client" extension in VS Code
+# 2. Click "Send Request" above any request
+# 3. After login/register, copy the token from response
+# 4. Replace "YOUR_TOKEN_HERE" with the actual token
+# 
+# Or use the @name variables for chained requests:
+# - Use {{registerUser.response.body.data.token}} to reference token from register
+# - Use {{loginUser.response.body.data.token}} to reference token from login
+#
+# Expected Status Codes:
+# - 200: Success (GET, most successful operations)
+# - 201: Created (successful registration)
+# - 400: Bad Request (validation errors)
+# - 401: Unauthorized (invalid/missing token, wrong password)
+# - 403: Forbidden (insufficient permissions)
+# - 404: Not Found (user doesn't exist)
+# - 409: Conflict (duplicate email)
+# - 500: Internal Server Error
