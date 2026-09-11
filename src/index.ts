@@ -2,8 +2,13 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import 'dotenv/config';
+import { validateEnvironment } from './utils/env.validation.js';
 import authRoutes from './routes/auth.routes.js';
 import usersRoutes from './routes/users.routes.js';
+
+// Validate environment variables before starting the application
+// This will throw an error and prevent startup if critical variables are missing or invalid
+validateEnvironment();
 
 const app = new Hono();
 

@@ -18,6 +18,9 @@ A robust backend API built with Hono.js, TypeScript, and MySQL using Drizzle ORM
 
 - ✅ **Security**
   - JWT tokens with configurable expiration
+  - Secure JWT secret validation (32+ character minimum)
+  - Algorithm allowlisting (prevents algorithm confusion attacks)
+  - Fail-fast startup validation
   - Password hashing with bcrypt
   - CORS configuration
   - Input validation with Zod
@@ -65,6 +68,17 @@ naasco-backend/
 - MySQL (running on port 3307)
 - npm or yarn
 
+### Important Security Notice ⚠️
+
+This application implements strict JWT security requirements. Before starting:
+1. Generate a secure JWT_SECRET (minimum 32 characters)
+2. Never use default or example values in production
+
+📖 **Quick Links**:
+- **[IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md)** - Start here for overview
+- **[JWT_SECURITY.md](./JWT_SECURITY.md)** - Complete security guide
+- **[SECURITY_IMPROVEMENTS.md](./SECURITY_IMPROVEMENTS.md)** - Technical details
+
 ### Installation
 
 1. **Install dependencies**:
@@ -81,7 +95,9 @@ naasco-backend/
    
    DATABASE_URL="mysql://root:root@localhost:3307/naasco_db"
    
-   JWT_SECRET="my-super-secret-jwt-key"
+   # CRITICAL: Generate a secure JWT_SECRET (at least 32 characters)
+   # Use: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   JWT_SECRET="your-generated-64-character-secret-here"
    JWT_EXPIRES_IN="7d"
    
    BCRYPT_SALT_ROUNDS=10
@@ -92,6 +108,8 @@ naasco-backend/
    DB_PASSWORD=root
    DB_NAME=naasco_db
    ```
+   
+   **⚠️ IMPORTANT**: See [JWT_SECURITY.md](./JWT_SECURITY.md) for detailed JWT security setup instructions.
 
 3. **Run database migrations**:
    ```bash
@@ -292,12 +310,17 @@ Common HTTP status codes:
 ## Security Best Practices
 
 1. **Never commit `.env` file** - Contains sensitive credentials
-2. **Use strong JWT_SECRET** - Generate a random 64-character string
-3. **Use HTTPS in production** - Never send tokens over HTTP
-4. **Validate all input** - Use Zod schemas for validation
-5. **Hash passwords** - Never store plain text passwords
-6. **Implement rate limiting** - Prevent brute force attacks (TODO)
-7. **Log security events** - Track failed login attempts (TODO)
+2. **Use strong JWT_SECRET** - Must be at least 32 characters (see [JWT_SECURITY.md](./JWT_SECURITY.md))
+3. **Generate cryptographic secrets** - Use `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+4. **Use HTTPS in production** - Never send tokens over HTTP
+5. **Validate all input** - Use Zod schemas for validation
+6. **Hash passwords** - Never store plain text passwords
+7. **Algorithm allowlisting** - JWT verification explicitly specifies HS256
+8. **Fail-fast validation** - App won't start with invalid environment variables
+9. **Implement rate limiting** - Prevent brute force attacks (TODO)
+10. **Log security events** - Track failed login attempts (TODO)
+
+For comprehensive JWT security documentation, see [JWT_SECURITY.md](./JWT_SECURITY.md)
 
 ## Development Tips
 

@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { db } from '../db/index.js';
 import { users, roles } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { getJwtSecret, getJwtExpiresIn } from '../utils/env.validation.js';
 
 const auth = new Hono();
 
@@ -26,8 +27,11 @@ const registerSchema = z.object({
 const generateToken = (userId: number, email: string, roleId: number) => {
   return jwt.sign(
     { userId, email, roleId },
-    process.env.JWT_SECRET || 'default-secret',
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as jwt.SignOptions
+    getJwtSecret(),
+    {
+      expiresIn: getJwtExpiresIn(),
+      algorithm: 'HS256' // Explicitly specify algorithm
+    } as jwt.SignOptions
   );
 };
 
@@ -242,10 +246,11 @@ auth.get('/me', async (c) => {
 
     const token = authHeader.substring(7);
 
-    // Verify token
+    // Verify token with explicit algorithm allowlist
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'default-secret'
+      getJwtSecret(),
+      { algorithms: ['HS256'] } // Prevent algorithm confusion attacks
     ) as { userId: number; email: string; roleId: number };
 
     // Fetch user

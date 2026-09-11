@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { db } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { getJwtSecret } from '../utils/env.validation.js';
 
 export interface AuthPayload {
   userId: number;
@@ -33,10 +34,11 @@ export const authMiddleware = async (c: Context, next: Next) => {
 
     const token = authHeader.substring(7);
 
-    // Verify token
+    // Verify token with explicit algorithm allowlist to prevent algorithm confusion attacks
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'default-secret'
+      getJwtSecret(),
+      { algorithms: ['HS256'] }
     ) as AuthPayload;
 
     // Verify user still exists and is active
