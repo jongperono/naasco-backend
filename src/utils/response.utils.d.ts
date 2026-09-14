@@ -16,7 +16,7 @@ export interface ErrorResponse {
 export declare const sendSuccess: <T>(c: Context, data: T, message?: string, statusCode?: number) => Response & import("hono").TypedResponse<string | T | undefined extends bigint | readonly bigint[] ? never : { [K in keyof {
     message?: string;
     data: T;
-} as (SuccessResponse<T>[K] extends infer T_1 ? T_1 extends SuccessResponse<T>[K] ? T_1 extends import("hono/utils/types").InvalidJSONValue ? true : false : never : never) extends true ? never : K]: boolean extends (SuccessResponse<T>[K] extends infer T_1 ? T_1 extends SuccessResponse<T>[K] ? T_1 extends import("hono/utils/types").InvalidJSONValue ? true : false : never : never) ? import("hono/utils/types").JSONParsed<SuccessResponse<T>[K], bigint | readonly bigint[]> | undefined : import("hono/utils/types").JSONParsed<SuccessResponse<T>[K], bigint | readonly bigint[]>; }, any, "json">;
+} as (SuccessResponse<T>[K] extends infer T_1 ? T_1 extends SuccessResponse<T>[K] ? T_1 extends import("hono/utils/types").InvalidJSONValue ? true : false : never : never) extends true ? never : K]: boolean extends (SuccessResponse<T>[K] extends infer T_2 ? T_2 extends SuccessResponse<T>[K] ? T_2 extends import("hono/utils/types").InvalidJSONValue ? true : false : never : never) ? import("hono/utils/types").JSONParsed<SuccessResponse<T>[K], bigint | readonly bigint[]> | undefined : import("hono/utils/types").JSONParsed<SuccessResponse<T>[K], bigint | readonly bigint[]>; }, any, "json">;
 /**
  * Send an error response
  */

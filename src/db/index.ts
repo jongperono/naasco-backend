@@ -18,3 +18,6 @@ const pool = mysql.createPool({
 });
 
 export const db = drizzle(pool, { schema, mode: 'default' });
+
+// Export pool for cleanup in tests
+export { pool };

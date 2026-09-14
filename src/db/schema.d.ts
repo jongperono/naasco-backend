@@ -88,7 +88,7 @@ export declare const roles: import("drizzle-orm/mysql-core").MySqlTableWithColum
             generated: undefined;
         }, {}, {}>;
     };
-    dialect: 'mysql';
+    dialect: "mysql";
 }>;
 export declare const users: import("drizzle-orm/mysql-core").MySqlTableWithColumns<{
     name: "users";
@@ -333,7 +333,7 @@ export declare const users: import("drizzle-orm/mysql-core").MySqlTableWithColum
             generated: undefined;
         }, {}, {}>;
     };
-    dialect: 'mysql';
+    dialect: "mysql";
 }>;
 export type Role = typeof roles.$inferSelect;
 export type NewRole = typeof roles.$inferInsert;
