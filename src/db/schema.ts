@@ -147,90 +147,56 @@ export const users = mysqlTable(
 //   })
 // );
 
-// // ─────────────────────────────────────────────────────────────
-// // AUDIT LOG (track important actions)
-// // ─────────────────────────────────────────────────────────────
-// export const auditLogs = mysqlTable(
-//   'audit_logs',
-//   {
-//     id: int('id').autoincrement().primaryKey(),
-//     userId: int('user_id').references(() => users.id, {
-//       onDelete: 'set null',
-//     }),
-//     action: varchar('action', { length: 100 }).notNull(),
-//     resource: varchar('resource', { length: 100 }),
-//     resourceId: varchar('resource_id', { length: 100 }),
-//     metadata: text('metadata'), // store JSON as string
-//     ipAddress: varchar('ip_address', { length: 45 }),
-//     userAgent: text('user_agent'),
-//     createdAt: timestamp('created_at').notNull().defaultNow(),
-//   },
-//   (table) => ({
-//     userIdIdx: index('audit_logs_user_id_idx').on(table.userId),
-//     actionIdx: index('audit_logs_action_idx').on(table.action),
-//     createdAtIdx: index('audit_logs_created_at_idx').on(table.createdAt),
-//   })
-// );
+// ─────────────────────────────────────────────────────────────
+// AUDIT LOGS (track important actions)
+// ─────────────────────────────────────────────────────────────
+export const auditLogs = mysqlTable(
+  'audit_logs',
+  {
+    id: int('id').autoincrement().primaryKey(),
+    userId: int('user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    action: varchar('action', { length: 20 }).notNull(), // CREATE/UPDATE/DELETE/LOGIN/APPROVE
+    entityType: varchar('entity_type', { length: 50 }).notNull(), // 'loan','savings','member'
+    entityId: int('entity_id'), // PK of affected record
+    oldValues: text('old_values'), // JSON string, null for CREATE
+    newValues: text('new_values'), // JSON string, null for DELETE
+    ipAddress: varchar('ip_address', { length: 45 }), // supports IPv4 and IPv6
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    // idx_audit_entity: ON audit_logs (entity_type, entity_id)
+    entityIdx: index('idx_audit_entity').on(table.entityType, table.entityId),
+    // idx_audit_user: ON audit_logs (user_id, created_at DESC)
+    userIdx: index('idx_audit_user').on(table.userId, table.createdAt),
+    // idx_audit_created: ON audit_logs (created_at DESC)
+    createdIdx: index('idx_audit_created').on(table.createdAt),
+  })
+);
 
-// // ─────────────────────────────────────────────────────────────
-// // RELATIONS
-// // ─────────────────────────────────────────────────────────────
-// export const rolesRelations = relations(roles, ({ many }) => ({
-//   users: many(users),
-//   rolePermissions: many(rolePermissions),
-// }));
+// ─────────────────────────────────────────────────────────────
+// RELATIONS
+// ─────────────────────────────────────────────────────────────
+export const rolesRelations = relations(roles, ({ many }) => ({
+  users: many(users),
+}));
 
-// export const usersRelations = relations(users, ({ one, many }) => ({
-//   role: one(roles, {
-//     fields: [users.roleId],
-//     references: [roles.id],
-//   }),
-//   sessions: many(sessions),
-//   passwordResetTokens: many(passwordResetTokens),
-//   auditLogs: many(auditLogs),
-// }));
+export const usersRelations = relations(users, ({ one, many }) => ({
+  role: one(roles, {
+    fields: [users.roleId],
+    references: [roles.id],
+  }),
+  auditLogs: many(auditLogs),
+}));
 
-// export const permissionsRelations = relations(permissions, ({ many }) => ({
-//   rolePermissions: many(rolePermissions),
-// }));
-
-// export const rolePermissionsRelations = relations(
-//   rolePermissions,
-//   ({ one }) => ({
-//     role: one(roles, {
-//       fields: [rolePermissions.roleId],
-//       references: [roles.id],
-//     }),
-//     permission: one(permissions, {
-//       fields: [rolePermissions.permissionId],
-//       references: [permissions.id],
-//     }),
-//   })
-// );
-
-// export const sessionsRelations = relations(sessions, ({ one }) => ({
-//   user: one(users, {
-//     fields: [sessions.userId],
-//     references: [users.id],
-//   }),
-// }));
-
-// export const passwordResetTokensRelations = relations(
-//   passwordResetTokens,
-//   ({ one }) => ({
-//     user: one(users, {
-//       fields: [passwordResetTokens.userId],
-//       references: [users.id],
-//     }),
-//   })
-// );
-
-// export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
-//   user: one(users, {
-//     fields: [auditLogs.userId],
-//     references: [users.id],
-//   }),
-// }));
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+}));
 
 // ─────────────────────────────────────────────────────────────
 // TYPES
@@ -241,17 +207,5 @@ export type NewRole = typeof roles.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
-// export type Session = typeof sessions.$inferSelect;
-// export type NewSession = typeof sessions.$inferInsert;
-
-// export type Permission = typeof permissions.$inferSelect;
-// export type NewPermission = typeof permissions.$inferInsert;
-
-// export type RolePermission = typeof rolePermissions.$inferSelect;
-// export type NewRolePermission = typeof rolePermissions.$inferInsert;
-
-// export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
-// export type NewPasswordResetToken = typeof passwordResetTokens.$inferInsert;
-
-// export type AuditLog = typeof auditLogs.$inferSelect;
-// export type NewAuditLog = typeof auditLogs.$inferInsert;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;

@@ -6,6 +6,7 @@ import { validateEnvironment } from './utils/env.validation.js';
 import authRoutes from './routes/auth.routes.js';
 import usersRoutes from './routes/users.routes.js';
 import membersRoutes from './routes/members.routes.js';
+import auditRoutes from './routes/audit.routes.js';
 
 // Validate environment variables before starting the application
 // This will throw an error and prevent startup if critical variables are missing or invalid
@@ -45,6 +46,9 @@ app.route('/api/users', usersRoutes);
 
 // Mount members routes (mirrors users routes)
 app.route('/api/members', membersRoutes);
+
+// Mount audit routes
+app.route('/api/audit', auditRoutes);
 
 app.get('/api/test', (c) => {
   return c.json({

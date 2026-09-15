@@ -5,6 +5,7 @@ import { authMiddleware, requireRole } from '../middleware/auth.middleware.js';
 import { db } from '../db/index.js';
 import { users, roles } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { auditFromContext, AuditAction, AuditEntityType, sanitizeForAudit } from '../utils/audit.utils.js';
 
 const membersRouter = new Hono();
 
@@ -133,6 +134,19 @@ membersRouter.post('/', requireRole(['admin', 'manager']), async (c) => {
       .from(roles)
       .where(eq(roles.id, createdUser.roleId))
       .limit(1);
+
+    // Audit log: Member created
+    const authUser = c.get('user');
+    await auditFromContext(c, {
+      userId: authUser?.userId,
+      action: AuditAction.CREATE,
+      entityType: AuditEntityType.MEMBER,
+      entityId: createdUser.id,
+      newValues: sanitizeForAudit({
+        ...createdUser,
+        role: role?.name,
+      }),
+    });
 
     return c.json({
       message: 'Member created successfully',
@@ -399,6 +413,29 @@ membersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
       .where(eq(roles.id, updatedUser.roleId))
       .limit(1);
 
+    // Audit log: Member updated
+    const authUser = c.get('user');
+    const oldValues = sanitizeForAudit({
+      email: existingUser.email,
+      firstName: existingUser.firstName,
+      lastName: existingUser.lastName,
+      phoneNumber: existingUser.phoneNumber,
+      roleId: existingUser.roleId,
+      isActive: existingUser.isActive,
+    });
+    const newValues = sanitizeForAudit({
+      ...updatedUser,
+      role: role?.name,
+    });
+    await auditFromContext(c, {
+      userId: authUser?.userId,
+      action: AuditAction.UPDATE,
+      entityType: AuditEntityType.MEMBER,
+      entityId: memberId,
+      oldValues,
+      newValues,
+    });
+
     return c.json({
       message: 'Member updated successfully',
       data: {
@@ -464,6 +501,22 @@ membersRouter.delete('/:id', requireRole(['admin']), async (c) => {
     await db
       .delete(users)
       .where(eq(users.id, memberId));
+
+    // Audit log: Member deleted
+    await auditFromContext(c, {
+      userId: authUser.userId,
+      action: AuditAction.DELETE,
+      entityType: AuditEntityType.MEMBER,
+      entityId: memberId,
+      oldValues: sanitizeForAudit({
+        email: existingUser.email,
+        firstName: existingUser.firstName,
+        lastName: existingUser.lastName,
+        phoneNumber: existingUser.phoneNumber,
+        roleId: existingUser.roleId,
+        isActive: existingUser.isActive,
+      }),
+    });
 
     return c.json({
       message: 'Member deleted successfully',
