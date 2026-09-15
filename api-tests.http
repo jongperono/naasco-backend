@@ -6,8 +6,8 @@
 @contentType = application/json
 
 # You can change these test credentials
-@testEmail = jongperono@example.com
-@testPassword = password1234
+@testEmail = jongperono@gmail.com
+@testPassword = jongjong
 
 # This will be set after login/register
 @authToken = my-super-secret-jwt-key

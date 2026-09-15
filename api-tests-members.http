@@ -1,0 +1,82 @@
+### NAASCO Backend API - Members Endpoints Tests
+### Note: Replace {{token}} and {{memberId}} with actual values
+
+@baseUrl = http://localhost:3001
+@token = YOUR_JWT_TOKEN_HERE
+@memberId = 4
+
+### 1. Health Check
+GET {{baseUrl}}/api/health
+
+### 2. Login (Get Token First)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@naasco.com",
+  "password": "admin123"
+}
+
+### 3. GET All Members
+GET {{baseUrl}}/api/members
+Authorization: Bearer {{token}}
+
+### 4. GET Member by ID
+GET {{baseUrl}}/api/members/{{memberId}}
+Authorization: Bearer {{token}}
+
+### 5. POST Create New Member
+POST {{baseUrl}}/api/members
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "newmember@naasco.com",
+  "password": "password123",
+  "firstName": "New",
+  "lastName": "Member",
+  "phoneNumber": "+1234567890",
+  "roleId": 3,
+  "isActive": true
+}
+
+### 6. PUT Update Member
+PUT {{baseUrl}}/api/members/{{memberId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "Updated",
+  "lastName": "Member",
+  "phoneNumber": "+9876543210",
+  "isActive": true
+}
+
+### 7. PUT Update Member Password
+PUT {{baseUrl}}/api/members/{{memberId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "password": "newpassword123"
+}
+
+### 8. DELETE Member (Admin Only)
+DELETE {{baseUrl}}/api/members/{{memberId}}
+Authorization: Bearer {{token}}
+
+###############################################
+### Comparison: /api/users vs /api/members ###
+###############################################
+
+### GET All Users (Original)
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{token}}
+
+### GET All Members (New)
+GET {{baseUrl}}/api/members
+Authorization: Bearer {{token}}
+
+### Response Comparison:
+# /api/users returns:  { "data": { "users": [...], "total": 10 } }
+# /api/members returns: { "data": { "members": [...], "total": 10 } }

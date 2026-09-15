@@ -6,10 +6,10 @@ import { db } from '../db/index.js';
 import { users, roles } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 
-const usersRouter = new Hono();
+const membersRouter = new Hono();
 
-// Validation schema for creating a user
-const createUserSchema = z.object({
+// Validation schema for creating a member
+const createMemberSchema = z.object({
   email: z.string().email('Invalid email format'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   firstName: z.string().min(1, 'First name is required'),
@@ -20,15 +20,15 @@ const createUserSchema = z.object({
 });
 
 // Apply auth middleware to all routes
-usersRouter.use('/*', authMiddleware);
+membersRouter.use('/*', authMiddleware);
 
-// POST /api/users - Create a new user (admin/manager only)
-usersRouter.post('/', requireRole(['admin', 'manager']), async (c) => {
+// POST /api/members - Create a new member (admin/manager only)
+membersRouter.post('/', requireRole(['admin', 'manager']), async (c) => {
   try {
     const body = await c.req.json();
 
     // Validate request body
-    const validatedData = createUserSchema.parse(body);
+    const validatedData = createMemberSchema.parse(body);
 
     // Check if user already exists
     const [existingUser] = await db
@@ -98,7 +98,7 @@ usersRouter.post('/', requireRole(['admin', 'manager']), async (c) => {
 
     if (!newUser) {
       return c.json(
-        { error: 'Failed to create user' },
+        { error: 'Failed to create member' },
         500
       );
     }
@@ -122,7 +122,7 @@ usersRouter.post('/', requireRole(['admin', 'manager']), async (c) => {
 
     if (!createdUser) {
       return c.json(
-        { error: 'Failed to fetch created user' },
+        { error: 'Failed to fetch created member' },
         500
       );
     }
@@ -135,9 +135,9 @@ usersRouter.post('/', requireRole(['admin', 'manager']), async (c) => {
       .limit(1);
 
     return c.json({
-      message: 'User created successfully',
+      message: 'Member created successfully',
       data: {
-        user: {
+        member: {
           ...createdUser,
           role: role ? role.name : 'unknown',
         },
@@ -151,68 +151,16 @@ usersRouter.post('/', requireRole(['admin', 'manager']), async (c) => {
       );
     }
 
-    console.error('Create user error:', error);
+    console.error('Create member error:', error);
     return c.json(
-      { error: 'Failed to create user' },
+      { error: 'Failed to create member' },
       500
     );
   }
 });
 
-// GET /api/users/profile - Get current user profile
-usersRouter.get('/profile', async (c) => {
-  try {
-    const authUser = c.get('user');
-
-    const [user] = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        phoneNumber: users.phoneNumber,
-        roleId: users.roleId,
-        isActive: users.isActive,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      })
-      .from(users)
-      .where(eq(users.id, authUser.userId))
-      .limit(1);
-
-    if (!user) {
-      return c.json(
-        { error: 'User not found' },
-        404
-      );
-    }
-
-    // Get role information
-    const [role] = await db
-      .select()
-      .from(roles)
-      .where(eq(roles.id, user.roleId))
-      .limit(1);
-
-    return c.json({
-      data: {
-        user: {
-          ...user,
-          role: role ? role.name : 'unknown',
-        },
-      },
-    });
-  } catch (error) {
-    console.error('Get profile error:', error);
-    return c.json(
-      { error: 'Failed to fetch profile' },
-      500
-    );
-  }
-});
-
-// GET /api/users - Get all users (admin only)
-usersRouter.get('/', requireRole(['admin', 'manager']), async (c) => {
+// GET /api/members - Get all members (admin/manager only)
+membersRouter.get('/', requireRole(['admin', 'manager']), async (c) => {
   try {
     const allUsers = await db
       .select({
@@ -232,35 +180,35 @@ usersRouter.get('/', requireRole(['admin', 'manager']), async (c) => {
     const roleMap = new Map(allRoles.map(r => [r.id, r.name]));
 
     // Map users with role names
-    const usersWithRoles = allUsers.map(user => ({
+    const membersWithRoles = allUsers.map(user => ({
       ...user,
       role: roleMap.get(user.roleId) || 'unknown',
     }));
 
     return c.json({
       data: {
-        users: usersWithRoles,
-        total: usersWithRoles.length,
+        members: membersWithRoles,
+        total: membersWithRoles.length,
       },
     });
   } catch (error) {
-    console.error('Get users error:', error);
+    console.error('Get members error:', error);
     return c.json(
-      { error: 'Failed to fetch users' },
+      { error: 'Failed to fetch members' },
       500
     );
   }
 });
 
-// GET /api/users/:id - Get user by ID (admin/manager only)
-usersRouter.get('/:id', requireRole(['admin', 'manager']), async (c) => {
+// GET /api/members/:id - Get member by ID (admin/manager only)
+membersRouter.get('/:id', requireRole(['admin', 'manager']), async (c) => {
   try {
-    const userIdParam = c.req.param('id');
-    const userId = parseInt(userIdParam || '0');
+    const memberIdParam = c.req.param('id');
+    const memberId = parseInt(memberIdParam || '0');
 
-    if (isNaN(userId) || userId === 0) {
+    if (isNaN(memberId) || memberId === 0) {
       return c.json(
-        { error: 'Invalid user ID' },
+        { error: 'Invalid member ID' },
         400
       );
     }
@@ -278,12 +226,12 @@ usersRouter.get('/:id', requireRole(['admin', 'manager']), async (c) => {
         updatedAt: users.updatedAt,
       })
       .from(users)
-      .where(eq(users.id, userId))
+      .where(eq(users.id, memberId))
       .limit(1);
 
     if (!user) {
       return c.json(
-        { error: 'User not found' },
+        { error: 'Member not found' },
         404
       );
     }
@@ -297,38 +245,38 @@ usersRouter.get('/:id', requireRole(['admin', 'manager']), async (c) => {
 
     return c.json({
       data: {
-        user: {
+        member: {
           ...user,
           role: role ? role.name : 'unknown',
         },
       },
     });
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error('Get member error:', error);
     return c.json(
-      { error: 'Failed to fetch user' },
+      { error: 'Failed to fetch member' },
       500
     );
   }
 });
 
-// PUT /api/users/:id - Update user (admin/manager only)
-usersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
+// PUT /api/members/:id - Update member (admin/manager only)
+membersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
   try {
-    const userIdParam = c.req.param('id');
-    const userId = parseInt(userIdParam || '0');
+    const memberIdParam = c.req.param('id');
+    const memberId = parseInt(memberIdParam || '0');
 
-    if (isNaN(userId) || userId === 0) {
+    if (isNaN(memberId) || memberId === 0) {
       return c.json(
-        { error: 'Invalid user ID' },
+        { error: 'Invalid member ID' },
         400
       );
     }
 
     const body = await c.req.json();
 
-    // Validation schema for updating a user
-    const updateUserSchema = z.object({
+    // Validation schema for updating a member
+    const updateMemberSchema = z.object({
       email: z.string().email('Invalid email format').optional(),
       password: z.string().min(6, 'Password must be at least 6 characters').optional(),
       firstName: z.string().min(1, 'First name is required').optional(),
@@ -339,18 +287,18 @@ usersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
     });
 
     // Validate request body
-    const validatedData = updateUserSchema.parse(body);
+    const validatedData = updateMemberSchema.parse(body);
 
     // Check if user exists
     const [existingUser] = await db
       .select()
       .from(users)
-      .where(eq(users.id, userId))
+      .where(eq(users.id, memberId))
       .limit(1);
 
     if (!existingUser) {
       return c.json(
-        { error: 'User not found' },
+        { error: 'Member not found' },
         404
       );
     }
@@ -366,7 +314,7 @@ usersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
         .where(eq(users.email, validatedData.email))
         .limit(1);
 
-      if (emailCheck && emailCheck.id !== userId) {
+      if (emailCheck && emailCheck.id !== memberId) {
         return c.json(
           { error: 'Email already taken by another user' },
           409
@@ -418,7 +366,7 @@ usersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
     await db
       .update(users)
       .set(updateData)
-      .where(eq(users.id, userId));
+      .where(eq(users.id, memberId));
 
     // Fetch updated user
     const [updatedUser] = await db
@@ -434,12 +382,12 @@ usersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
         updatedAt: users.updatedAt,
       })
       .from(users)
-      .where(eq(users.id, userId))
+      .where(eq(users.id, memberId))
       .limit(1);
 
     if (!updatedUser) {
       return c.json(
-        { error: 'Failed to fetch updated user' },
+        { error: 'Failed to fetch updated member' },
         500
       );
     }
@@ -452,9 +400,9 @@ usersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
       .limit(1);
 
     return c.json({
-      message: 'User updated successfully',
+      message: 'Member updated successfully',
       data: {
-        user: {
+        member: {
           ...updatedUser,
           role: role ? role.name : 'unknown',
         },
@@ -468,23 +416,23 @@ usersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
       );
     }
 
-    console.error('Update user error:', error);
+    console.error('Update member error:', error);
     return c.json(
-      { error: 'Failed to update user' },
+      { error: 'Failed to update member' },
       500
     );
   }
 });
 
-// DELETE /api/users/:id - Delete user (admin only)
-usersRouter.delete('/:id', requireRole(['admin']), async (c) => {
+// DELETE /api/members/:id - Delete member (admin only)
+membersRouter.delete('/:id', requireRole(['admin']), async (c) => {
   try {
-    const userIdParam = c.req.param('id');
-    const userId = parseInt(userIdParam || '0');
+    const memberIdParam = c.req.param('id');
+    const memberId = parseInt(memberIdParam || '0');
 
-    if (isNaN(userId) || userId === 0) {
+    if (isNaN(memberId) || memberId === 0) {
       return c.json(
-        { error: 'Invalid user ID' },
+        { error: 'Invalid member ID' },
         400
       );
     }
@@ -493,19 +441,19 @@ usersRouter.delete('/:id', requireRole(['admin']), async (c) => {
     const [existingUser] = await db
       .select()
       .from(users)
-      .where(eq(users.id, userId))
+      .where(eq(users.id, memberId))
       .limit(1);
 
     if (!existingUser) {
       return c.json(
-        { error: 'User not found' },
+        { error: 'Member not found' },
         404
       );
     }
 
     // Prevent self-deletion
     const authUser = c.get('user');
-    if (authUser.userId === userId) {
+    if (authUser.userId === memberId) {
       return c.json(
         { error: 'Cannot delete your own account' },
         400
@@ -515,18 +463,18 @@ usersRouter.delete('/:id', requireRole(['admin']), async (c) => {
     // Delete user
     await db
       .delete(users)
-      .where(eq(users.id, userId));
+      .where(eq(users.id, memberId));
 
     return c.json({
-      message: 'User deleted successfully',
+      message: 'Member deleted successfully',
     });
   } catch (error) {
-    console.error('Delete user error:', error);
+    console.error('Delete member error:', error);
     return c.json(
-      { error: 'Failed to delete user' },
+      { error: 'Failed to delete member' },
       500
     );
   }
 });
 
-export default usersRouter;
+export default membersRouter;
