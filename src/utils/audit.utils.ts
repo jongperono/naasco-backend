@@ -1,37 +1,24 @@
 import { db } from '../db/index.js';
-import { auditLogs, type NewAuditLog } from '../db/schema.js';
+import type { NewAuditLog } from '../db/schema.js';
+import { auditLogs } from '../db/schema.js';
 
 /**
- * Audit action types
+ * Utility functions for audit logging
  */
-export enum AuditAction {
-  CREATE = 'CREATE',
-  UPDATE = 'UPDATE',
-  DELETE = 'DELETE',
-  LOGIN = 'LOGIN',
-  LOGOUT = 'LOGOUT',
-  APPROVE = 'APPROVE',
-  REJECT = 'REJECT',
-  SUBMIT = 'SUBMIT',
-  VIEW = 'VIEW',
-}
 
-/**
- * Entity types to audit
- */
-export enum AuditEntityType {
-  LOAN = 'loan',
-  SAVINGS = 'savings',
-  MEMBER = 'member',
-  USER = 'user',
-  ROLE = 'role',
-  PAYMENT = 'payment',
-  WITHDRAWAL = 'withdrawal',
-}
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'APPROVE' | 'REJECT' | 'VIEW' | 'EXPORT';
 
-/**
- * Audit log data structure
- */
+export type AuditEntityType =
+  | 'user'
+  | 'member'
+  | 'role'
+  | 'loan'
+  | 'savings'
+  | 'transaction'
+  | 'payment'
+  | 'setting'
+  | 'report';
+
 export interface AuditLogData {
   userId?: number | null;
   action: AuditAction;
@@ -45,142 +32,56 @@ export interface AuditLogData {
 
 /**
  * Create an audit log entry
- * 
- * @param data - Audit log data
- * @returns Promise<void>
- * 
- * @example
- * ```typescript
- * await createAuditLog({
- *   userId: 1,
- *   action: AuditAction.UPDATE,
- *   entityType: AuditEntityType.MEMBER,
- *   entityId: 4,
- *   oldValues: { firstName: 'John', lastName: 'Doe' },
- *   newValues: { firstName: 'Jane', lastName: 'Doe' },
- *   ipAddress: '192.168.1.1',
- *   userAgent: 'Mozilla/5.0...'
- * });
- * ```
  */
 export async function createAuditLog(data: AuditLogData): Promise<void> {
   try {
-    const auditData: NewAuditLog = {
-      userId: data.userId || null,
+    const logEntry: NewAuditLog = {
+      userId: data.userId,
       action: data.action,
       entityType: data.entityType,
-      entityId: data.entityId || null,
+      entityId: data.entityId,
       oldValues: data.oldValues ? JSON.stringify(data.oldValues) : null,
       newValues: data.newValues ? JSON.stringify(data.newValues) : null,
-      ipAddress: data.ipAddress || null,
-      userAgent: data.userAgent || null,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
     };
 
-    await db.insert(auditLogs).values(auditData);
+    await db.insert(auditLogs).values(logEntry);
   } catch (error) {
-    // Log error but don't throw - audit failures shouldn't break the main operation
     console.error('Failed to create audit log:', error);
+    // Don't throw - audit logging should not break the main operation
   }
 }
 
 /**
- * Helper to extract IP address from request
- * Supports X-Forwarded-For header for proxied requests
- * 
- * @param request - Hono request object
- * @returns IP address or null
+ * Extract IP address from request headers
  */
-export function getIpAddress(request: any): string | null {
-  try {
-    // Check X-Forwarded-For header (for proxied requests)
-    const forwardedFor = request.header('x-forwarded-for');
-    if (forwardedFor) {
-      // Take the first IP if multiple are present
-      return forwardedFor.split(',')[0].trim();
-    }
-
-    // Check X-Real-IP header
-    const realIp = request.header('x-real-ip');
-    if (realIp) {
-      return realIp;
-    }
-
-    // Fallback to direct connection IP (if available)
-    // Note: This may not be available in all Hono setups
-    return null;
-  } catch (error) {
-    console.error('Failed to extract IP address:', error);
-    return null;
-  }
+export function getIpAddress(headers: Record<string, string | undefined>): string | undefined {
+  return (
+    headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    headers['x-real-ip'] ||
+    headers['cf-connecting-ip'] ||
+    undefined
+  );
 }
 
 /**
- * Helper to extract user agent from request
- * 
- * @param request - Hono request object
- * @returns User agent string or null
+ * Get user agent from request headers
  */
-export function getUserAgent(request: any): string | null {
-  try {
-    return request.header('user-agent') || null;
-  } catch (error) {
-    console.error('Failed to extract user agent:', error);
-    return null;
-  }
+export function getUserAgent(headers: Record<string, string | undefined>): string | undefined {
+  return headers['user-agent'];
 }
 
 /**
- * Helper to create audit log from Hono context
- * Automatically extracts IP address and user agent
- * 
- * @param c - Hono context
- * @param data - Audit log data (without IP and user agent)
- * @returns Promise<void>
- * 
- * @example
- * ```typescript
- * // In your route handler
- * await auditFromContext(c, {
- *   userId: authUser.userId,
- *   action: AuditAction.UPDATE,
- *   entityType: AuditEntityType.MEMBER,
- *   entityId: memberId,
- *   oldValues: oldMember,
- *   newValues: updatedMember
- * });
- * ```
+ * Sanitize sensitive fields from objects before logging
  */
-export async function auditFromContext(
-  c: any,
-  data: Omit<AuditLogData, 'ipAddress' | 'userAgent'>
-): Promise<void> {
-  const ipAddress = getIpAddress(c.req);
-  const userAgent = getUserAgent(c.req);
+export function sanitizeForAudit(obj: Record<string, any>): Record<string, any> {
+  const sensitiveFields = ['password', 'token', 'secret', 'apiKey', 'privateKey'];
+  const sanitized = { ...obj };
 
-  await createAuditLog({
-    ...data,
-    ipAddress,
-    userAgent,
-  });
-}
-
-/**
- * Sanitize sensitive data before logging
- * Removes passwords and other sensitive fields
- * 
- * @param data - Data object to sanitize
- * @param sensitiveFields - Array of field names to remove (default: ['password'])
- * @returns Sanitized data object
- */
-export function sanitizeForAudit(
-  data: Record<string, any>,
-  sensitiveFields: string[] = ['password', 'token', 'secret', 'apiKey']
-): Record<string, any> {
-  const sanitized = { ...data };
-
-  for (const field of sensitiveFields) {
-    if (field in sanitized) {
-      sanitized[field] = '[REDACTED]';
+  for (const key of Object.keys(sanitized)) {
+    if (sensitiveFields.some(field => key.toLowerCase().includes(field.toLowerCase()))) {
+      sanitized[key] = '[REDACTED]';
     }
   }
 
@@ -188,47 +89,173 @@ export function sanitizeForAudit(
 }
 
 /**
- * Diff two objects to capture only changed fields
- * Useful for UPDATE actions to log only what changed
- * 
- * @param oldData - Original data
- * @param newData - Updated data
- * @returns Object containing only changed fields from both old and new data
- * 
- * @example
- * ```typescript
- * const changes = getChangedFields(
- *   { firstName: 'John', lastName: 'Doe', email: 'john@example.com' },
- *   { firstName: 'Jane', lastName: 'Doe', email: 'john@example.com' }
- * );
- * // Result: {
- * //   old: { firstName: 'John' },
- * //   new: { firstName: 'Jane' }
- * // }
- * ```
+ * Compare two objects and return only the changed fields
  */
 export function getChangedFields(
-  oldData: Record<string, any>,
-  newData: Record<string, any>
+  oldObj: Record<string, any>,
+  newObj: Record<string, any>
 ): { old: Record<string, any>; new: Record<string, any> } {
-  const oldChanges: Record<string, any> = {};
-  const newChanges: Record<string, any> = {};
+  const oldValues: Record<string, any> = {};
+  const newValues: Record<string, any> = {};
 
-  // Check all keys in newData
-  for (const key in newData) {
-    if (oldData[key] !== newData[key]) {
-      oldChanges[key] = oldData[key];
-      newChanges[key] = newData[key];
+  for (const key of Object.keys(newObj)) {
+    if (JSON.stringify(oldObj[key]) !== JSON.stringify(newObj[key])) {
+      oldValues[key] = oldObj[key];
+      newValues[key] = newObj[key];
     }
   }
 
-  // Check for deleted keys (present in old but not in new)
-  for (const key in oldData) {
-    if (!(key in newData)) {
-      oldChanges[key] = oldData[key];
-      newChanges[key] = null;
-    }
-  }
+  return {
+    old: sanitizeForAudit(oldValues),
+    new: sanitizeForAudit(newValues),
+  };
+}
 
-  return { old: oldChanges, new: newChanges };
+/**
+ * Create audit log for CREATE operations
+ */
+export async function logCreate(
+  userId: number | null | undefined,
+  entityType: AuditEntityType,
+  entityId: number,
+  newValues: Record<string, any>,
+  ipAddress?: string | null,
+  userAgent?: string | null
+): Promise<void> {
+  await createAuditLog({
+    userId: userId ?? null,
+    action: 'CREATE',
+    entityType,
+    entityId,
+    newValues: sanitizeForAudit(newValues),
+    ipAddress: ipAddress ?? null,
+    userAgent: userAgent ?? null,
+  });
+}
+
+/**
+ * Create audit log for UPDATE operations
+ */
+export async function logUpdate(
+  userId: number | null | undefined,
+  entityType: AuditEntityType,
+  entityId: number,
+  oldValues: Record<string, any>,
+  newValues: Record<string, any>,
+  ipAddress?: string | null,
+  userAgent?: string | null
+): Promise<void> {
+  const changes = getChangedFields(oldValues, newValues);
+
+  // Only log if there are actual changes
+  if (Object.keys(changes.new).length > 0) {
+    await createAuditLog({
+      userId: userId ?? null,
+      action: 'UPDATE',
+      entityType,
+      entityId,
+      oldValues: changes.old,
+      newValues: changes.new,
+      ipAddress: ipAddress ?? null,
+      userAgent: userAgent ?? null,
+    });
+  }
+}
+
+/**
+ * Create audit log for DELETE operations
+ */
+export async function logDelete(
+  userId: number | null | undefined,
+  entityType: AuditEntityType,
+  entityId: number,
+  oldValues: Record<string, any>,
+  ipAddress?: string | null,
+  userAgent?: string | null
+): Promise<void> {
+  await createAuditLog({
+    userId: userId ?? null,
+    action: 'DELETE',
+    entityType,
+    entityId,
+    oldValues: sanitizeForAudit(oldValues),
+    ipAddress: ipAddress ?? null,
+    userAgent: userAgent ?? null,
+  });
+}
+
+/**
+ * Create audit log for LOGIN operations
+ */
+export async function logLogin(
+  userId: number,
+  ipAddress?: string | null,
+  userAgent?: string | null
+): Promise<void> {
+  await createAuditLog({
+    userId,
+    action: 'LOGIN',
+    entityType: 'user',
+    entityId: userId,
+    ipAddress: ipAddress ?? null,
+    userAgent: userAgent ?? null,
+  });
+}
+
+/**
+ * Create audit log for LOGOUT operations
+ */
+export async function logLogout(
+  userId: number,
+  ipAddress?: string | null,
+  userAgent?: string | null
+): Promise<void> {
+  await createAuditLog({
+    userId,
+    action: 'LOGOUT',
+    entityType: 'user',
+    entityId: userId,
+    ipAddress: ipAddress ?? null,
+    userAgent: userAgent ?? null,
+  });
+}
+
+/**
+ * Create audit log for VIEW operations (for sensitive data)
+ */
+export async function logView(
+  userId: number | null | undefined,
+  entityType: AuditEntityType,
+  entityId: number,
+  ipAddress?: string | null,
+  userAgent?: string | null
+): Promise<void> {
+  await createAuditLog({
+    userId: userId ?? null,
+    action: 'VIEW',
+    entityType,
+    entityId,
+    ipAddress: ipAddress ?? null,
+    userAgent: userAgent ?? null,
+  });
+}
+
+/**
+ * Create audit log for EXPORT operations
+ */
+export async function logExport(
+  userId: number | null | undefined,
+  entityType: AuditEntityType,
+  filters?: Record<string, any>,
+  ipAddress?: string | null,
+  userAgent?: string | null
+): Promise<void> {
+  await createAuditLog({
+    userId: userId ?? null,
+    action: 'EXPORT',
+    entityType,
+    newValues: filters ?? null,
+    ipAddress: ipAddress ?? null,
+    userAgent: userAgent ?? null,
+  });
 }

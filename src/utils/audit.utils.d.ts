@@ -1,32 +1,8 @@
 /**
- * Audit action types
+ * Utility functions for audit logging
  */
-export declare enum AuditAction {
-    CREATE = "CREATE",
-    UPDATE = "UPDATE",
-    DELETE = "DELETE",
-    LOGIN = "LOGIN",
-    LOGOUT = "LOGOUT",
-    APPROVE = "APPROVE",
-    REJECT = "REJECT",
-    SUBMIT = "SUBMIT",
-    VIEW = "VIEW"
-}
-/**
- * Entity types to audit
- */
-export declare enum AuditEntityType {
-    LOAN = "loan",
-    SAVINGS = "savings",
-    MEMBER = "member",
-    USER = "user",
-    ROLE = "role",
-    PAYMENT = "payment",
-    WITHDRAWAL = "withdrawal"
-}
-/**
- * Audit log data structure
- */
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'APPROVE' | 'REJECT' | 'VIEW' | 'EXPORT';
+export type AuditEntityType = 'user' | 'member' | 'role' | 'loan' | 'savings' | 'transaction' | 'payment' | 'setting' | 'report';
 export interface AuditLogData {
     userId?: number | null;
     action: AuditAction;
@@ -39,93 +15,53 @@ export interface AuditLogData {
 }
 /**
  * Create an audit log entry
- *
- * @param data - Audit log data
- * @returns Promise<void>
- *
- * @example
- * ```typescript
- * await createAuditLog({
- *   userId: 1,
- *   action: AuditAction.UPDATE,
- *   entityType: AuditEntityType.MEMBER,
- *   entityId: 4,
- *   oldValues: { firstName: 'John', lastName: 'Doe' },
- *   newValues: { firstName: 'Jane', lastName: 'Doe' },
- *   ipAddress: '192.168.1.1',
- *   userAgent: 'Mozilla/5.0...'
- * });
- * ```
  */
 export declare function createAuditLog(data: AuditLogData): Promise<void>;
 /**
- * Helper to extract IP address from request
- * Supports X-Forwarded-For header for proxied requests
- *
- * @param request - Hono request object
- * @returns IP address or null
+ * Extract IP address from request headers
  */
-export declare function getIpAddress(request: any): string | null;
+export declare function getIpAddress(headers: Record<string, string | undefined>): string | undefined;
 /**
- * Helper to extract user agent from request
- *
- * @param request - Hono request object
- * @returns User agent string or null
+ * Get user agent from request headers
  */
-export declare function getUserAgent(request: any): string | null;
+export declare function getUserAgent(headers: Record<string, string | undefined>): string | undefined;
 /**
- * Helper to create audit log from Hono context
- * Automatically extracts IP address and user agent
- *
- * @param c - Hono context
- * @param data - Audit log data (without IP and user agent)
- * @returns Promise<void>
- *
- * @example
- * ```typescript
- * // In your route handler
- * await auditFromContext(c, {
- *   userId: authUser.userId,
- *   action: AuditAction.UPDATE,
- *   entityType: AuditEntityType.MEMBER,
- *   entityId: memberId,
- *   oldValues: oldMember,
- *   newValues: updatedMember
- * });
- * ```
+ * Sanitize sensitive fields from objects before logging
  */
-export declare function auditFromContext(c: any, data: Omit<AuditLogData, 'ipAddress' | 'userAgent'>): Promise<void>;
+export declare function sanitizeForAudit(obj: Record<string, any>): Record<string, any>;
 /**
- * Sanitize sensitive data before logging
- * Removes passwords and other sensitive fields
- *
- * @param data - Data object to sanitize
- * @param sensitiveFields - Array of field names to remove (default: ['password'])
- * @returns Sanitized data object
+ * Compare two objects and return only the changed fields
  */
-export declare function sanitizeForAudit(data: Record<string, any>, sensitiveFields?: string[]): Record<string, any>;
-/**
- * Diff two objects to capture only changed fields
- * Useful for UPDATE actions to log only what changed
- *
- * @param oldData - Original data
- * @param newData - Updated data
- * @returns Object containing only changed fields from both old and new data
- *
- * @example
- * ```typescript
- * const changes = getChangedFields(
- *   { firstName: 'John', lastName: 'Doe', email: 'john@example.com' },
- *   { firstName: 'Jane', lastName: 'Doe', email: 'john@example.com' }
- * );
- * // Result: {
- * //   old: { firstName: 'John' },
- * //   new: { firstName: 'Jane' }
- * // }
- * ```
- */
-export declare function getChangedFields(oldData: Record<string, any>, newData: Record<string, any>): {
+export declare function getChangedFields(oldObj: Record<string, any>, newObj: Record<string, any>): {
     old: Record<string, any>;
     new: Record<string, any>;
 };
+/**
+ * Create audit log for CREATE operations
+ */
+export declare function logCreate(userId: number | null | undefined, entityType: AuditEntityType, entityId: number, newValues: Record<string, any>, ipAddress?: string | null, userAgent?: string | null): Promise<void>;
+/**
+ * Create audit log for UPDATE operations
+ */
+export declare function logUpdate(userId: number | null | undefined, entityType: AuditEntityType, entityId: number, oldValues: Record<string, any>, newValues: Record<string, any>, ipAddress?: string | null, userAgent?: string | null): Promise<void>;
+/**
+ * Create audit log for DELETE operations
+ */
+export declare function logDelete(userId: number | null | undefined, entityType: AuditEntityType, entityId: number, oldValues: Record<string, any>, ipAddress?: string | null, userAgent?: string | null): Promise<void>;
+/**
+ * Create audit log for LOGIN operations
+ */
+export declare function logLogin(userId: number, ipAddress?: string | null, userAgent?: string | null): Promise<void>;
+/**
+ * Create audit log for LOGOUT operations
+ */
+export declare function logLogout(userId: number, ipAddress?: string | null, userAgent?: string | null): Promise<void>;
+/**
+ * Create audit log for VIEW operations (for sensitive data)
+ */
+export declare function logView(userId: number | null | undefined, entityType: AuditEntityType, entityId: number, ipAddress?: string | null, userAgent?: string | null): Promise<void>;
+/**
+ * Create audit log for EXPORT operations
+ */
+export declare function logExport(userId: number | null | undefined, entityType: AuditEntityType, filters?: Record<string, any>, ipAddress?: string | null, userAgent?: string | null): Promise<void>;
 //# sourceMappingURL=audit.utils.d.ts.map

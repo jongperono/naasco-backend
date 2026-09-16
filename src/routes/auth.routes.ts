@@ -6,6 +6,7 @@ import { db } from '../db/index.js';
 import { users, roles } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { getJwtSecret, getJwtExpiresIn } from '../utils/env.validation.js';
+import { logLogin, logCreate, getIpAddress, getUserAgent } from '../utils/audit.utils.js';
 
 const auth = new Hono();
 
@@ -87,6 +88,18 @@ auth.post('/login', async (c) => {
 
     // Generate JWT token
     const token = generateToken(user.id, user.email, user.roleId);
+
+    // Log successful login
+    const headers = c.req.raw.headers;
+    const headerObj: Record<string, string | undefined> = {};
+    headers.forEach((value, key) => {
+      headerObj[key] = value;
+    });
+    await logLogin(
+      user.id,
+      getIpAddress(headerObj),
+      getUserAgent(headerObj)
+    );
 
     // Return success response
     return c.json({
@@ -198,6 +211,27 @@ auth.post('/register', async (c) => {
 
     // Generate JWT token
     const token = generateToken(createdUser.id, createdUser.email, createdUser.roleId);
+
+    // Log user registration
+    const headers = c.req.raw.headers;
+    const headerObj: Record<string, string | undefined> = {};
+    headers.forEach((value, key) => {
+      headerObj[key] = value;
+    });
+    await logCreate(
+      createdUser.id,
+      'user',
+      createdUser.id,
+      {
+        email: createdUser.email,
+        firstName: createdUser.firstName,
+        lastName: createdUser.lastName,
+        phoneNumber: createdUser.phoneNumber,
+        roleId: createdUser.roleId,
+      },
+      getIpAddress(headerObj),
+      getUserAgent(headerObj)
+    );
 
     // Return success response
     return c.json({

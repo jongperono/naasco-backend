@@ -1,0 +1,57 @@
+### NAASCO Audit API Tests
+### Make sure the server is running on http://localhost:3001
+
+@baseUrl = http://localhost:3001
+@token = YOUR_JWT_TOKEN_HERE
+
+### 1. Get all audit logs (with pagination)
+GET {{baseUrl}}/api/audit
+Authorization: Bearer {{token}}
+
+### 2. Get audit logs with filters
+GET {{baseUrl}}/api/audit?action=CREATE&entityType=user&page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 3. Get audit logs by date range
+GET {{baseUrl}}/api/audit?startDate=2024-01-01&endDate=2024-12-31
+Authorization: Bearer {{token}}
+
+### 4. Get specific audit log by ID
+GET {{baseUrl}}/api/audit/1
+Authorization: Bearer {{token}}
+
+### 5. Get audit logs for specific entity
+GET {{baseUrl}}/api/audit/entity/user/1
+Authorization: Bearer {{token}}
+
+### 6. Get audit logs for specific user
+GET {{baseUrl}}/api/audit/user/1
+Authorization: Bearer {{token}}
+
+### 7. Get audit statistics (last 30 days)
+GET {{baseUrl}}/api/audit/stats
+Authorization: Bearer {{token}}
+
+### 8. Get audit statistics (last 7 days)
+GET {{baseUrl}}/api/audit/stats?days=7
+Authorization: Bearer {{token}}
+
+### 9. Get available audit actions
+GET {{baseUrl}}/api/audit/actions
+Authorization: Bearer {{token}}
+
+### 10. Get available entity types
+GET {{baseUrl}}/api/audit/entity-types
+Authorization: Bearer {{token}}
+
+### 11. Filter by multiple criteria
+GET {{baseUrl}}/api/audit?userId=1&action=UPDATE&entityType=user&startDate=2024-01-01
+Authorization: Bearer {{token}}
+
+### 12. Test pagination
+GET {{baseUrl}}/api/audit?page=2&limit=20
+Authorization: Bearer {{token}}
+
+### 13. Filter by specific user and date range
+GET {{baseUrl}}/api/audit?userId=2&startDate=2024-06-01&endDate=2024-12-31
+Authorization: Bearer {{token}}

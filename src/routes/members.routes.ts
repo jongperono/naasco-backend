@@ -5,7 +5,7 @@ import { authMiddleware, requireRole } from '../middleware/auth.middleware.js';
 import { db } from '../db/index.js';
 import { users, roles } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
-import { auditFromContext, AuditAction, AuditEntityType, sanitizeForAudit } from '../utils/audit.utils.js';
+import { logCreate, logUpdate, logDelete, sanitizeForAudit, getIpAddress, getUserAgent } from '../utils/audit.utils.js';
 
 const membersRouter = new Hono();
 
@@ -137,16 +137,23 @@ membersRouter.post('/', requireRole(['admin', 'manager']), async (c) => {
 
     // Audit log: Member created
     const authUser = c.get('user');
-    await auditFromContext(c, {
-      userId: authUser?.userId,
-      action: AuditAction.CREATE,
-      entityType: AuditEntityType.MEMBER,
-      entityId: createdUser.id,
-      newValues: sanitizeForAudit({
+    const headers = c.req.raw.headers;
+    const headerObj: Record<string, string | undefined> = {};
+    headers.forEach((value, key) => {
+      headerObj[key] = value;
+    });
+
+    await logCreate(
+      authUser?.userId,
+      'member',
+      createdUser.id,
+      sanitizeForAudit({
         ...createdUser,
         role: role?.name,
       }),
-    });
+      getIpAddress(headerObj),
+      getUserAgent(headerObj)
+    );
 
     return c.json({
       message: 'Member created successfully',
@@ -415,26 +422,31 @@ membersRouter.put('/:id', requireRole(['admin', 'manager']), async (c) => {
 
     // Audit log: Member updated
     const authUser = c.get('user');
-    const oldValues = sanitizeForAudit({
-      email: existingUser.email,
-      firstName: existingUser.firstName,
-      lastName: existingUser.lastName,
-      phoneNumber: existingUser.phoneNumber,
-      roleId: existingUser.roleId,
-      isActive: existingUser.isActive,
+    const headers = c.req.raw.headers;
+    const headerObj: Record<string, string | undefined> = {};
+    headers.forEach((value, key) => {
+      headerObj[key] = value;
     });
-    const newValues = sanitizeForAudit({
-      ...updatedUser,
-      role: role?.name,
-    });
-    await auditFromContext(c, {
-      userId: authUser?.userId,
-      action: AuditAction.UPDATE,
-      entityType: AuditEntityType.MEMBER,
-      entityId: memberId,
-      oldValues,
-      newValues,
-    });
+
+    await logUpdate(
+      authUser?.userId,
+      'member',
+      memberId,
+      {
+        email: existingUser.email,
+        firstName: existingUser.firstName,
+        lastName: existingUser.lastName,
+        phoneNumber: existingUser.phoneNumber,
+        roleId: existingUser.roleId,
+        isActive: existingUser.isActive,
+      },
+      {
+        ...updatedUser,
+        role: role?.name,
+      },
+      getIpAddress(headerObj),
+      getUserAgent(headerObj)
+    );
 
     return c.json({
       message: 'Member updated successfully',
@@ -503,20 +515,27 @@ membersRouter.delete('/:id', requireRole(['admin']), async (c) => {
       .where(eq(users.id, memberId));
 
     // Audit log: Member deleted
-    await auditFromContext(c, {
-      userId: authUser.userId,
-      action: AuditAction.DELETE,
-      entityType: AuditEntityType.MEMBER,
-      entityId: memberId,
-      oldValues: sanitizeForAudit({
+    const headers = c.req.raw.headers;
+    const headerObj: Record<string, string | undefined> = {};
+    headers.forEach((value, key) => {
+      headerObj[key] = value;
+    });
+
+    await logDelete(
+      authUser.userId,
+      'member',
+      memberId,
+      {
         email: existingUser.email,
         firstName: existingUser.firstName,
         lastName: existingUser.lastName,
         phoneNumber: existingUser.phoneNumber,
         roleId: existingUser.roleId,
         isActive: existingUser.isActive,
-      }),
-    });
+      },
+      getIpAddress(headerObj),
+      getUserAgent(headerObj)
+    );
 
     return c.json({
       message: 'Member deleted successfully',

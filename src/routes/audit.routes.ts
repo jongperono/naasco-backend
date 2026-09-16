@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { authMiddleware, requireRole } from '../middleware/auth.middleware.js';
 import { db } from '../db/index.js';
-import { auditLogs } from '../db/schema.js';
-import { desc, eq, and, gte, lte } from 'drizzle-orm';
+import { auditLogs, users } from '../db/schema.js';
+import { desc, eq, and, gte, lte, count, sql } from 'drizzle-orm';
 
 const auditRouter = new Hono();
 
@@ -52,10 +52,24 @@ auditRouter.get('/', requireRole(['admin']), async (c) => {
       conditions.push(lte(auditLogs.createdAt, new Date(endDate)));
     }
 
-    // Query with filters
+    // Query with filters and join with users table
     const logs = await db
-      .select()
+      .select({
+        id: auditLogs.id,
+        userId: auditLogs.userId,
+        action: auditLogs.action,
+        entityType: auditLogs.entityType,
+        entityId: auditLogs.entityId,
+        oldValues: auditLogs.oldValues,
+        newValues: auditLogs.newValues,
+        ipAddress: auditLogs.ipAddress,
+        userAgent: auditLogs.userAgent,
+        createdAt: auditLogs.createdAt,
+        userName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+        userEmail: users.email,
+      })
       .from(auditLogs)
+      .leftJoin(users, eq(auditLogs.userId, users.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(auditLogs.createdAt))
       .limit(limit)
@@ -63,7 +77,7 @@ auditRouter.get('/', requireRole(['admin']), async (c) => {
 
     // Get total count for pagination
     const countResult = await db
-      .select({ count: auditLogs.id })
+      .select({ count: count() })
       .from(auditLogs)
       .where(conditions.length > 0 ? and(...conditions) : undefined);
 
@@ -226,6 +240,138 @@ auditRouter.get('/user/:userId', requireRole(['admin']), async (c) => {
     console.error('Get user audit logs error:', error);
     return c.json(
       { error: 'Failed to fetch user audit logs' },
+      500
+    );
+  }
+});
+
+// GET /api/audit/stats - Get audit log statistics (admin only)
+auditRouter.get('/stats', requireRole(['admin']), async (c) => {
+  try {
+    const query = c.req.query();
+    const days = parseInt(query.days || '30');
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // Get total logs count
+    const totalLogsResult = await db
+      .select({ count: count() })
+      .from(auditLogs);
+
+    // Get logs in time period
+    const periodLogsResult = await db
+      .select({ count: count() })
+      .from(auditLogs)
+      .where(gte(auditLogs.createdAt, startDate));
+
+    // Get logs by action
+    const logsByAction = await db
+      .select({
+        action: auditLogs.action,
+        count: count(),
+      })
+      .from(auditLogs)
+      .where(gte(auditLogs.createdAt, startDate))
+      .groupBy(auditLogs.action);
+
+    // Get logs by entity type
+    const logsByEntityType = await db
+      .select({
+        entityType: auditLogs.entityType,
+        count: count(),
+      })
+      .from(auditLogs)
+      .where(gte(auditLogs.createdAt, startDate))
+      .groupBy(auditLogs.entityType);
+
+    // Get most active users
+    const mostActiveUsers = await db
+      .select({
+        userId: auditLogs.userId,
+        userName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+        userEmail: users.email,
+        count: count(),
+      })
+      .from(auditLogs)
+      .leftJoin(users, eq(auditLogs.userId, users.id))
+      .where(and(
+        gte(auditLogs.createdAt, startDate),
+        sql`${auditLogs.userId} IS NOT NULL`
+      ))
+      .groupBy(auditLogs.userId, users.firstName, users.lastName, users.email)
+      .orderBy(desc(count()))
+      .limit(10);
+
+    // Get recent activity by day
+    const activityByDay = await db
+      .select({
+        date: sql<string>`DATE(${auditLogs.createdAt})`,
+        count: count(),
+      })
+      .from(auditLogs)
+      .where(gte(auditLogs.createdAt, startDate))
+      .groupBy(sql`DATE(${auditLogs.createdAt})`)
+      .orderBy(sql`DATE(${auditLogs.createdAt})`);
+
+    return c.json({
+      data: {
+        period: `Last ${days} days`,
+        totalLogs: totalLogsResult[0]?.count || 0,
+        periodLogs: periodLogsResult[0]?.count || 0,
+        byAction: logsByAction,
+        byEntityType: logsByEntityType,
+        mostActiveUsers,
+        activityByDay,
+      },
+    });
+  } catch (error) {
+    console.error('Get audit stats error:', error);
+    return c.json(
+      { error: 'Failed to fetch audit statistics' },
+      500
+    );
+  }
+});
+
+// GET /api/audit/actions - Get available audit actions (admin only)
+auditRouter.get('/actions', requireRole(['admin']), async (c) => {
+  try {
+    const actions = await db
+      .selectDistinct({ action: auditLogs.action })
+      .from(auditLogs)
+      .orderBy(auditLogs.action);
+
+    return c.json({
+      data: {
+        actions: actions.map(a => a.action),
+      },
+    });
+  } catch (error) {
+    console.error('Get audit actions error:', error);
+    return c.json(
+      { error: 'Failed to fetch audit actions' },
+      500
+    );
+  }
+});
+
+// GET /api/audit/entity-types - Get available entity types (admin only)
+auditRouter.get('/entity-types', requireRole(['admin']), async (c) => {
+  try {
+    const entityTypes = await db
+      .selectDistinct({ entityType: auditLogs.entityType })
+      .from(auditLogs)
+      .orderBy(auditLogs.entityType);
+
+    return c.json({
+      data: {
+        entityTypes: entityTypes.map(e => e.entityType),
+      },
+    });
+  } catch (error) {
+    console.error('Get entity types error:', error);
+    return c.json(
+      { error: 'Failed to fetch entity types' },
       500
     );
   }
